@@ -1,34 +1,33 @@
-from django.shortcuts import render
-from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
 from .models import Event
 from .serializers import EventSerializer
 from rest_framework.decorators import api_view, permission_classes 
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticatedOrReadOnly
 
 @api_view(['GET','POST'])
+@permission_classes([IsAuthenticatedOrReadOnly])
 def event_list(request):
 
     if request.method == 'GET':
-        queryset = Event.objects.all()
+        queryset = Event.objects.filter(is_active=True)
         serializer = EventSerializer(queryset, many=True)
         return Response(serializer.data)
     
     elif request.method == 'POST':
         serializer = EventSerializer(data = request.data)
-        if serializer.is_valid():
-            serializer.save(owner=request.user)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(owner=request.user)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
         
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-@api_view(['GET', 'PUT','DELETE'])
+@api_view(['GET', 'PUT','PATCH','DELETE'])
+@permission_classes([IsAuthenticatedOrReadOnly])
 def event_detail(request, pk):
     
     try:
-        event = Event.objects.get(pk=pk)
+        event = Event.objects.get(pk=pk, is_active = True)
     
     except Event.DoesNotExist:
         return Response(status=status.HTTP_404_NOT_FOUND)
@@ -37,21 +36,22 @@ def event_detail(request, pk):
         serializer = EventSerializer(event)
         return Response(serializer.data)
     
-    elif request.method == 'PUT':
-        if request.user != event.owner:
+#   -- metodos de gerenciamento dos eventos propios --
+    if request.user != event.owner:
             return Response(status=status.HTTP_403_FORBIDDEN)
-        
-        serializer = EventSerializer(event, data = request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
+    if request.method in ['PUT','PATCH']:
+        aceita_parcial = (request.method == 'PATCH')
+        serializer = EventSerializer(event, data = request.data, partial = aceita_parcial)
+        
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+  
+        
     elif request.method == "DELETE":
-        if request.user != event.owner:
-            return Response(status=status.HTTP_403_FORBIDDEN)
-        event.delete()
+        event.is_active = False
+        event.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
         

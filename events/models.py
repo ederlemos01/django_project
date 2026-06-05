@@ -9,6 +9,10 @@ class Event(models.Model):
     location = models.CharField(max_length=200)
     start_datetime = models.DateTimeField()
     end_datetime = models.DateTimeField()
+    is_active = models.BooleanField(default=True)
     owner = models.ForeignKey(settings.AUTH_USER_MODEL,
                               on_delete=models.PROTECT,
                               related_name='organizes_events')
+    def __str__(self):
+        return self.title
+    
