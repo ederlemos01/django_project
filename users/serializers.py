@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
-class UserSerializer(serializers.ModelSerializer):
+class UserProfileSerializer(serializers.ModelSerializer):
     
     followers_count = serializers.SerializerMethodField()
     following_count = serializers.SerializerMethodField()
@@ -20,8 +20,21 @@ class UserSerializer(serializers.ModelSerializer):
             'following_count',
             'date_joined'
         ]
-        def get_followers_count(self, obj):
+        read_only_fields = ['id']
+        
+    def get_followers_count(self, obj):
             return obj.followers.count()
 
-        def get_following_count(self, obj):
+    def get_following_count(self, obj):
             return obj.following.count()
+        
+class UserRegistrationSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True)
+
+    class Meta:
+        model = User
+        fields = ['username','email','password']
+        
+    
+    def create(self, validated_data):
+         return User.objects.create_user(**validated_data)
